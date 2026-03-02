@@ -1,0 +1,1 @@
+An offline-first mobile application for Hematology ward management. Features SBAR-based handovers, nurse shift scheduling, and real-time patient tracking across 12 beds. Supports multiple roles (Nurses, Doctors, Pharmacy) with automated cloud sync.
