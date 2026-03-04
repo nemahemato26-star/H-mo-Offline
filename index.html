@@ -2,46 +2,516 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hémo-Offline | خريطة المصلحة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Health Grid | نظام إدارة مصلحة المستشفى</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
-        .header { background: #2c3e50; color: white; padding: 15px; text-align: center; border-radius: 10px; margin-bottom: 20px; }
-        .ward-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
-        .room { background: white; border-radius: 10px; padding: 15px; border-top: 6px solid #3498db; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .room-title { font-weight: bold; font-size: 1.1em; color: #2980b9; margin-bottom: 12px; display: block; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-        .beds-container { display: flex; gap: 10px; }
-        .bed { flex: 1; background: #f9f9f9; border: 1px solid #dcdde1; padding: 10px; border-radius: 8px; text-align: center; }
-        .bed-icon { font-size: 24px; display: block; margin-bottom: 5px; }
-        .patient-name { font-weight: bold; color: #2c3e50; font-size: 0.9em; }
-        .btn-pass { display: block; width: 100%; margin-top: 20px; padding: 15px; background: #27ae60; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1em; }
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --success: #27ae60;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #7f8c8d;
+            --border-color: #e0e6ed;
+            --shadow: 0 4px 6px rgba(0,0,0,0.05);
+            --shadow-hover: 0 8px 15px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] {
+            --primary: #1a252f;
+            --secondary: #2c3e50;
+            --accent: #2980b9;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #f5f6fa;
+            --text-muted: #a4b0be;
+            --border-color: #2f3640;
+            --shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); transition: var(--transition); overflow-x: hidden; }
+
+        /* Typography & Utilities */
+        h1, h2, h3 { color: var(--primary); }
+        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3 { color: var(--text-main); }
+        .text-danger { color: var(--danger); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .hidden { display: none !important; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: var(--transition); display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); color: var(--text-main); }
+        input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); }
+
+        /* Layout */
+        #app-container { display: flex; flex-direction: column; min-height: 100vh; }
+        header { background: var(--card-bg); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--accent); }
+        .header-logo { display: flex; align-items: center; gap: 10px; font-size: 1.5em; font-weight: bold; color: var(--accent); }
+        .header-controls { display: flex; align-items: center; gap: 15px; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; background: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success); }
+        .status-indicator.offline { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        
+        main { padding: 20px; flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+        /* Login Screen */
+        #login-view { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, var(--primary), var(--accent)); }
+        .login-card { background: var(--card-bg); padding: 40px; border-radius: var(--radius); box-shadow: 0 15px 30px rgba(0,0,0,0.2); width: 100%; max-width: 400px; text-align: center; }
+        .login-card i { font-size: 3em; color: var(--accent); margin-bottom: 20px; }
+
+        /* Dashboard & Admin Panel */
+        .admin-panel { background: var(--primary); color: white; padding: 20px; border-radius: var(--radius); margin-bottom: 25px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; box-shadow: var(--shadow); }
+        .stat-card { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px; text-align: center; border-right: 4px solid var(--accent); }
+        .stat-card h3 { color: white; font-size: 2em; margin: 10px 0 0; }
+        
+        /* Grid Layouts */
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        /* Cards */
+        .card { background: var(--card-bg); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); transition: var(--transition); border: 1px solid var(--border-color); cursor: pointer; position: relative; overflow: hidden; }
+        .card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        .card-title { font-size: 1.2em; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        
+        .alert-badge { position: absolute; top: 15px; left: 15px; background: var(--danger); color: white; padding: 4px 8px; border-radius: 20px; font-size: 0.8em; font-weight: bold; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        /* Patient & SBAR Lists */
+        .patient-list-item { background: var(--bg-color); padding: 12px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-right: 4px solid var(--border-color); }
+        .patient-list-item.critical { border-right-color: var(--danger); }
+        
+        .sbar-card { border-right: 4px solid var(--accent); margin-bottom: 15px; }
+        .sbar-card.high { border-right-color: var(--danger); }
+        .sbar-card.medium { border-right-color: var(--warning); }
+        .sbar-card.low { border-right-color: var(--success); }
+        .sbar-meta { font-size: 0.85em; color: var(--text-muted); margin-bottom: 10px; display: flex; gap: 15px; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(3px); }
+        .modal-content { background: var(--card-bg); border-radius: var(--radius); padding: 25px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative; }
+        .modal-close { position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 1.5em; cursor: pointer; color: var(--text-muted); }
+
+        /* Loader & Toasts */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--primary); color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease forwards; min-width: 250px; }
+        .toast.error { background: var(--danger); }
+        .toast.success { background: var(--success); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Print Styles */
+        @media print {
+            header, .btn, .admin-panel, #toast-container { display: none !important; }
+            body { background: white; color: black; }
+            .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .header-controls span { display: none; }
+            .modal-content { padding: 15px; }
+            .grid-container { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h2>مصلحة أمراض وسرطان الدم</h2>
-        <small>نظام Hémo-Offline لإدارة المناوبات</small>
+    <div id="toast-container"></div>
+
+    <div id="login-view">
+        <div class="login-card">
+            <i class="fas fa-heartbeat"></i>
+            <h2>Health Grid</h2>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">تسجيل الدخول للنظام</p>
+            <form id="login-form">
+                <input type="email" id="login-email" placeholder="البريد الإلكتروني" required autocomplete="email">
+                <input type="password" id="login-password" placeholder="كلمة المرور" required autocomplete="current-password">
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;" id="login-btn">
+                    دخول <i class="fas fa-sign-in-alt"></i>
+                </button>
+            </form>
+            <div id="login-error" class="text-danger" style="margin-top: 10px; font-size: 0.9em; display: none;"></div>
+        </div>
     </div>
 
-    <div class="ward-map" id="wardMap">
-        </div>
+    <div id="app-view" class="hidden">
+        <header>
+            <div class="header-logo">
+                <i class="fas fa-hospital"></i> Health Grid
+            </div>
+            <div class="header-controls">
+                <span id="connection-status" title="حالة الاتصال"><i class="status-indicator"></i></span>
+                <button class="btn btn-outline" onclick="toggleTheme()" title="تغيير المظهر"><i class="fas fa-moon"></i></button>
+                <div style="text-align: left; line-height: 1.2;">
+                    <strong id="user-name" style="display: block;">المستخدم</strong>
+                    <small id="user-role" style="color: var(--accent);">الدور</small>
+                </div>
+                <button class="btn btn-danger" onclick="logout()">خروج <i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </header>
 
-    <button class="btn-pass" onclick="alert('سيتم فتح نموذج SBAR قريباً')">تسجيل تسليم المناوبة (Passation)</button>
+        <main>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="view-title">لوحة التحكم</h2>
+                <button id="back-btn" class="btn btn-outline hidden" onclick="renderDashboard()"><i class="fas fa-arrow-right"></i> رجوع للغرف</button>
+            </div>
 
-    <script>
-        const mapContainer = document.getElementById('wardMap');
-        for(let i=1; i<=6; i++) {
-            mapContainer.innerHTML += `
-                <div class="room">
-                    <span class="room-title">الغرفة ${i}</span>
-                    <div class="beds-container">
-                        <div class="bed"><span class="bed-icon">🛏️</span><span class="patient-name">سرير A</span></div>
-                        <div class="bed"><span class="bed-icon">🛏️</span><span class="patient-name">سرير B</span></div>
+            <div id="admin-panel-container"></div>
+
+            <div id="main-content">
+                <div class="loader" id="main-loader"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-sbar" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal('modal-sbar')">&times;</button>
+            <h3 style="margin-bottom: 20px; border-bottom: 2px solid var(--accent); padding-bottom: 10px;">
+                <i class="fas fa-notes-medical"></i> نموذج تسليم المناوبة (SBAR)
+            </h3>
+            <form id="sbar-form">
+                <input type="hidden" id="sbar-patient-id">
+                
+                <label>الحالة (Situation):</label>
+                <textarea id="sbar-s" rows="2" required placeholder="ما هي المشكلة الحالية؟"></textarea>
+                
+                <label>الخلفية (Background):</label>
+                <textarea id="sbar-b" rows="2" required placeholder="التاريخ الطبي المختصر"></textarea>
+                
+                <label>التقييم (Assessment):</label>
+                <textarea id="sbar-a" rows="2" required placeholder="تقييمك للحالة والعلامات الحيوية"></textarea>
+                
+                <label>التوصية (Recommendation):</label>
+                <textarea id="sbar-r" rows="2" required placeholder="ماذا تقترح أو تطلب؟"></textarea>
+
+                <div style="display: flex; gap: 15px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label>الأولوية:</label>
+                        <select id="sbar-priority" required>
+                            <option value="Low">منخفضة (Low)</option>
+                            <option value="Medium">متوسطة (Medium)</option>
+                            <option value="High" class="text-danger">عالية (High)</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>المرفقات (نتائج مخبرية):</label>
+                        <input type="file" id="sbar-files" multiple accept="image/*">
                     </div>
                 </div>
-            `;
+
+                <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 20px;" id="sbar-submit-btn">
+                    حفظ التقرير <i class="fas fa-save"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, enableMultiTabIndexedDbPersistence, collection, doc, getDoc, onSnapshot, query, where, addDoc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+
+        /* ==========================================
+           FIREBASE CONFIGURATION
+           Paste your Firebase config keys here
+        ========================================== */
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let app, auth, db, storage;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            storage = getStorage(app);
+            
+            // Enable Offline Persistence
+            enableMultiTabIndexedDbPersistence(db).catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a a time.");
+                } else if (err.code == 'unimplemented') {
+                    console.warn("The current browser does not support all of the features required to enable persistence");
+                }
+            });
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            showToast("خطأ في تهيئة قاعدة البيانات. يرجى التحقق من إعدادات Firebase.", "error");
         }
-    </script>
-</body>
-</html>
+
+        /* ==========================================
+           STATE MANAGEMENT
+        ========================================== */
+        let currentUser = null;
+        let userData = null;
+        let activeShift = null;
+        let listeners = []; // Store unsubscribe functions
+        let currentPatients = [];
+
+        /* ==========================================
+           DOM ELEMENTS
+        ========================================== */
+        const loginView = document.getElementById('login-view');
+        const appView = document.getElementById('app-view');
+        const mainContent = document.getElementById('main-content');
+        const viewTitle = document.getElementById('view-title');
+        const backBtn = document.getElementById('back-btn');
+        const adminPanelContainer = document.getElementById('admin-panel-container');
+
+        /* ==========================================
+           UTILITIES & UI HELPERS
+        ========================================== */
+        window.toggleTheme = () => {
+            const body = document.documentElement;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        };
+
+        // Load saved theme
+        if (localStorage.getItem('theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+        window.showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'check-circle'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 4000);
+        };
+
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        
+        const clearListeners = () => {
+            listeners.forEach(unsub => unsub());
+            listeners = [];
+        };
+
+        const showLoader = () => mainContent.innerHTML = '<div class="loader"></div>';
+
+        // Network Status
+        window.addEventListener('online', () => {
+            document.querySelector('.status-indicator').classList.remove('offline');
+            showToast("تم استعادة الاتصال بالإنترنت. جاري المزامنة...", "success");
+        });
+        window.addEventListener('offline', () => {
+            document.querySelector('.status-indicator').classList.add('offline');
+            showToast("أنت الآن تعمل في وضع عدم الاتصال (Offline)", "warning");
+        });
+
+        /* ==========================================
+           AUTHENTICATION
+        ========================================== */
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            const btn = document.getElementById('login-btn');
+            const errorDiv = document.getElementById('login-error');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الدخول...';
+            errorDiv.style.display = 'none';
+
+            try {
+                // Remove generic initialization check for empty config
+                if(firebaseConfig.apiKey === "YOUR_API_KEY") throw new Error("يرجى وضع مفاتيح Firebase أولاً");
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (error) {
+                errorDiv.innerText = error.message.includes('API_KEY') ? error.message : "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = 'دخول <i class="fas fa-sign-in-alt"></i>';
+            }
+        });
+
+        window.logout = async () => {
+            try {
+                await signOut(auth);
+                clearListeners();
+            } catch (error) {
+                showToast("خطأ أثناء تسجيل الخروج", "error");
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                // Fetch User Role from Firestore 'users' collection
+                try {
+                    const userDoc = await getDoc(doc(db, "users", user.uid));
+                    if (userDoc.exists()) {
+                        userData = userDoc.data();
+                    } else {
+                        // Fallback for demo if users collection isn't setup
+                        userData = { displayName: user.email.split('@')[0], role: 'nurse' };
+                    }
+                    
+                    document.getElementById('user-name').innerText = userData.displayName || 'مستخدم';
+                    document.getElementById('user-role').innerText = getRoleName(userData.role);
+                    
+                    loginView.classList.add('hidden');
+                    appView.classList.remove('hidden');
+                    
+                    initApp();
+                } catch (error) {
+                    console.error(error);
+                    showToast("خطأ في جلب بيانات المستخدم", "error");
+                }
+            } else {
+                currentUser = null;
+                userData = null;
+                loginView.classList.remove('hidden');
+                appView.classList.add('hidden');
+                document.getElementById('login-btn').disabled = false;
+                document.getElementById('login-btn').innerHTML = 'دخول <i class="fas fa-sign-in-alt"></i>';
+            }
+        });
+
+        function getRoleName(role) {
+            const roles = { admin: 'رئيس المصلحة (Admin)', nurse: 'ممرض', doctor: 'طبيب', secretary: 'سكرتير' };
+            return roles[role] || role;
+        }
+
+        /* ==========================================
+           APP INITIALIZATION & ROUTING
+        ========================================== */
+        async function initApp() {
+            fetchActiveShift();
+            renderDashboard();
+        }
+
+        // Real-time listener for Active Shift
+        function fetchActiveShift() {
+            const q = query(collection(db, "shifts"), where("isActive", "==", true));
+            const unsub = onSnapshot(q, (snapshot) => {
+                if (!snapshot.empty) {
+                    activeShift = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+                } else {
+                    activeShift = null;
+                }
+                updateAdminPanel(); // Refresh stats if admin
+            });
+            listeners.push(unsub);
+        }
+
+        /* ==========================================
+           VIEWS: DASHBOARD (ROOMS GRID)
+        ========================================== */
+        window.renderDashboard = () => {
+            clearListeners(); // Clean up previous view listeners
+            fetchActiveShift(); // Re-attach global listeners
+            
+            viewTitle.innerHTML = '<i class="fas fa-th-large"></i> الغرف';
+            backBtn.classList.add('hidden');
+            showLoader();
+
+            // Setup Admin Panel
+            updateAdminPanel();
+
+            // Mock 6 Rooms structure as requested (if not strictly in DB, we generate the grid based on 1 to 6)
+            const gridHTML = `
+                <div class="grid-container" id="rooms-grid">
+                    ${[1,2,3,4,5,6].map(num => `
+                        <div class="card" onclick="renderRoomView(${num})" id="room-card-${num}">
+                            <div class="card-header">
+                                <div class="card-title"><i class="fas fa-door-closed"></i> غرفة ${num}</div>
+                                <span class="text-muted" id="room-count-${num}">جارِ التحميل...</span>
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                <div style="flex: 1; text-align: center; padding: 10px; background: var(--bg-color); border-radius: 8px;">
+                                    <i class="fas fa-bed"></i> سرير A<br>
+                                    <small id="bed-a-${num}">-</small>
+                                </div>
+                                <div style="flex: 1; text-align: center; padding: 10px; background: var(--bg-color); border-radius: 8px;">
+                                    <i class="fas fa-bed"></i> سرير B<br>
+                                    <small id="bed-b-${num}">-</small>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            mainContent.innerHTML = gridHTML;
+
+            // Real-time listener for all patients to update room cards
+            const q = collection(db, "patients");
+            const unsub = onSnapshot(q, (snapshot) => {
+                currentPatients = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                
+                // Update UI for each room
+                for(let i=1; i<=6; i++) {
+                    const roomPatients = currentPatients.filter(p => p.roomNumber == i);
+                    const bedA = roomPatients.find(p => p.bedNumber === 'A');
+                    const bedB = roomPatients.find(p => p.bedNumber === 'B');
+                    const hasAlert = roomPatients.some(p => p.alert === true);
+
+                    const cardEl = document.getElementById(`room-card-${i}`);
+                    if(cardEl) {
+                        document.getElementById(`room-count-${i}`).innerText = `${roomPatients.length} مرضى`;
+                        document.getElementById(`bed-a-${i}`).innerHTML = bedA ? (bedA.alert ? `<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${bedA.fullName}</span>` : bedA.fullName) : '<span class="text-muted">فارغ</span>';
+                        document.getElementById(`bed-b-${i}`).innerHTML = bedB ? (bedB.alert ? `<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ${bedB.fullName}</span>` : bedB.fullName) : '<span class="text-muted">فارغ</span>';
+                        
+                        // Handle Alert Badge
+                        let badge = cardEl.querySelector('.alert-badge');
+                        if(hasAlert && !badge) {
+                            cardEl.innerHTML += `<div class="alert-badge"><i class="fas fa-bell"></i> تنبيه</div>`;
+                            cardEl.style.borderColor = 'var(--danger)';
+                        } else if (!hasAlert && badge) {
+                            badge.remove();
+                            cardEl.style.borderColor = 'var(--border-color)';
+                        }
+                    }
+                }
+                updateAdminPanel();
+            }, (error) => {
+                if(error.code !== 'permission-denied') console.error(error); // Ignore permissions errs on setup
+            });
+            listeners.push(unsub);
+        };
+
+        // Render Admin Panel
+        function updateAdminPanel() {
+            if (userData?.role !== 'admin') {
+                adminPanelContainer.innerHTML = '';
+                return;
+            }
+            
+            const totalPatients = currentPatients.length;
+            const criticalPatients = currentPatients.filter(p => p.alert).length;
+            const shiftText = activeShift ? `ممرضين: ${activeShift.nurses?.length || 0}` : 'لا توجد مناوبة';
+
+            adminPanelContainer.innerHTML = `
+                <div class="admin-panel">
+                    <div class="stat-card">
+                        <div><i class="fas fa-users"></i> إجمالي المرضى</div>
+                        <h3>${totalPatients}</h3>
+                    </div>
+                    <div class="stat-card" style="border-right-color: var(--danger);">
+                        <div><i class="fas fa-exclamation-circle"></i> حالات حرجة</div>
+                        <h3>${criticalPatients}</h3>
+                    </div>
+                    <div class="stat-card" style="border-right-
